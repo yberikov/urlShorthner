@@ -6,6 +6,8 @@ import (
 	"urlshorthner/internal/lib/logger/sl"
 	"urlshorthner/internal/storage/sqlite"
 
+	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
 	"golang.org/x/exp/slog"
 )
 
@@ -22,7 +24,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	_ = storage
+	router := chi.NewRouter()
+
+	router.Use(middleware.Recoverer)
+	router.Use(middleware.URLFormat)
 }
 
 func setupLogger(env string) *slog.Logger {
