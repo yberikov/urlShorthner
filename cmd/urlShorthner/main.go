@@ -1,8 +1,11 @@
 package main
 
 import (
+	"net/http"
 	"os"
 	"urlshorthner/internal/config"
+	"urlshorthner/internal/http-server/handlers/redirect"
+	"urlshorthner/internal/http-server/handlers/url/save"
 	"urlshorthner/internal/lib/logger/sl"
 	"urlshorthner/internal/storage/sqlite"
 
@@ -16,8 +19,6 @@ func main() {
 
 	log := setupLogger(cfg.Env)
 
-	log.Info("starting urlShorthner", slog.String("env", cfg.Env))
-
 	storage, err := sqlite.New(cfg.StoragePath)
 	if err != nil {
 		log.Error("failed to init storage", sl.Err(err))
@@ -28,6 +29,23 @@ func main() {
 
 	router.Use(middleware.Recoverer)
 	router.Use(middleware.URLFormat)
+
+	router.Post("/url", save.New(log, storage))
+	router.Get("/{alias}", redirect.New(log, storage))
+
+	log.Info("starting server", slog.String("address", cfg.Address))
+
+	srv := &http.Server{
+		Addr:         cfg.Address,
+		Handler:      router,
+		ReadTimeout:  cfg.HTTPServer.Timeout,
+		WriteTimeout: cfg.HTTPServer.Timeout,
+		IdleTimeout:  cfg.HTTPServer.IdleTimeout,
+	}
+	if err := srv.ListenAndServe(); err != nil {
+		log.Error("failed to start server")
+	}
+	log.Error("server stopped")
 }
 
 func setupLogger(env string) *slog.Logger {
